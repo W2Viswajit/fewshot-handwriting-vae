@@ -37,6 +37,7 @@ outputs/
 
 # Dataset backups or large raw data dumps
 data/raw/*
+data/processed/*
 backup/
 !data/raw/.gitkeep
 

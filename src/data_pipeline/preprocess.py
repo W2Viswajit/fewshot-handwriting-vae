@@ -1,31 +1,38 @@
 import os
-from PIL import Image
-from pathlib import Path
+from PIL import Image, ImageOps
+import numpy as np
 
-INPUT_DIR = Path("data/raw/hindi/")
-OUTPUT_DIR = Path("data/processed/hindi/")
-IMAGE_SIZE = (64, 64)
-VALID_EXTENSIONS = [".jpg", ".png", ".bmp", ".tiff", ".jpeg"]
+# Input and output folders
+input_folder = 'data/raw/hindi'
+output_folder = 'data/processed/hindi'
+target_size = (64, 64)
 
-def preprocess_image(input_path, output_path):
-    try:
-        image = Image.open(input_path).convert("L")  # Convert to grayscale
-        image = image.resize(IMAGE_SIZE)            # Resize
-        image.save(output_path)                     # Save to output
-    except Exception as e:
-        print(f"Error processing {input_path}: {e}")
+# Ensure output folder exists
+os.makedirs(output_folder, exist_ok=True)
 
-def run():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for label_dir in INPUT_DIR.iterdir():
-        if label_dir.is_dir():
-            output_label_dir = OUTPUT_DIR / label_dir.name
-            output_label_dir.mkdir(parents=True, exist_ok=True)
-            
-            for img_file in label_dir.glob("*"):
-                if img_file.suffix.lower() in VALID_EXTENSIONS:
-                    out_path = output_label_dir / (img_file.stem + ".png")
-                    preprocess_image(img_file, out_path)
+def preprocess_image(image_path):
+    # Open image and convert to grayscale
+    img = Image.open(image_path).convert('L')
 
-if __name__ == "__main__":
-    run()
+    # Invert if background is dark and foreground is light
+    # Heuristic: if mean pixel is < 128, it's likely inverted
+    if np.array(img).mean() < 128:
+        img = ImageOps.invert(img)
+
+    # Resize with antialiasing to keep quality
+    img = img.resize(target_size, Image.Resampling.LANCZOS)
+
+    return img
+
+# Process all images
+for filename in os.listdir(input_folder):
+    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tif', '.tiff')):
+        input_path = os.path.join(input_folder, filename)
+        output_path = os.path.join(output_folder, filename)
+
+        try:
+            processed_img = preprocess_image(input_path)
+            processed_img.save(output_path)
+            print(f"Processed and saved: {filename}")
+        except Exception as e:
+            print(f"Failed to process {filename}: {e}")
